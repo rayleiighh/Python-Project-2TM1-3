@@ -1,6 +1,10 @@
 import tkinter as tk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
+from utils import require_active_user
+
 
 class FlashcardApp:
     def __init__(self, root, db_manager):
@@ -59,6 +63,8 @@ class FlashcardApp:
         self.default_label.pack(pady=20)
         self.flashcard_menu.add_command(label="Gérer les Flashcards", command=self.choisir_set_pour_gerer_flashcards)
         self.flashcard_menu.add_command(label="Vérifier les Notifications", command=self.verifier_notifications)
+        self.menu.add_command(label="Afficher Sets Utilisateur", command=self.afficher_sets_utilisateur)
+
         self.user_menu.add_command(
             label="Sélectionner un utilisateur",
             image=self.icone_selectionner_utilisateur,
@@ -132,12 +138,8 @@ class FlashcardApp:
         )
         ajouter_button.pack(pady=10)
 
+    @require_active_user
     def creer_set_flashcards(self):
-        if not self.utilisateur_actif:
-            messagebox.showerror("Erreur", "Veuillez d'abord sélectionner un utilisateur.")
-            return
-
-        """Fenêtre pour créer un set de flashcards."""
         if not self.utilisateur_actif:
             messagebox.showerror("Erreur", "Veuillez d'abord sélectionner un utilisateur.")
             return
@@ -146,8 +148,7 @@ class FlashcardApp:
             nom_set = set_name_entry.get().strip()
             if nom_set:
                 try:
-                    self.db_manager.ajouter_set_flashcards(nom_set,
-                                                           self.utilisateur_actif)  # Utilise l'utilisateur actif
+                    self.db_manager.ajouter_set_flashcards(nom_set, self.utilisateur_actif)
                     messagebox.showinfo("Succès", f"Set '{nom_set}' créé avec succès !")
                     creer_set_window.destroy()
                 except Exception as e:
@@ -165,6 +166,7 @@ class FlashcardApp:
 
         tk.Button(creer_set_window, text="Créer", command=creer_action).pack(pady=20)
 
+    @require_active_user
     def ajouter_flashcard(self):
         if not self.utilisateur_actif:
             messagebox.showerror("Erreur", "Veuillez d'abord sélectionner un utilisateur.")
@@ -203,12 +205,11 @@ class FlashcardApp:
 
         tk.Button(ajouter_flashcard_window, text="Ajouter", command=ajouter_action).pack(pady=20)
 
+    @require_active_user
     def reviser_set_flashcards(self):
         if not self.utilisateur_actif:
             messagebox.showerror("Erreur", "Veuillez d'abord sélectionner un utilisateur.")
             return
-
-        """Fenêtre pour sélectionner un set et démarrer une révision."""
 
         def commencer_revision():
             selected_set = listbox.get(tk.ACTIVE)
@@ -227,55 +228,83 @@ class FlashcardApp:
         listbox = tk.Listbox(revision_window)
         listbox.pack(pady=10, fill=tk.BOTH, expand=True)
 
-        utilisateur_id = 1  # En phase de test, utilisateur ID 1
-        sets = self.db_manager.obtenir_sets_pour_utilisateur(utilisateur_id)
+        # Charger les sets pour l'utilisateur actif
+        sets = self.db_manager.obtenir_sets_pour_utilisateur(self.utilisateur_actif)
         for set_ in sets:
             listbox.insert(tk.END, f"{set_[0]}: {set_[1]}")  # ID et nom du set
 
         tk.Button(revision_window, text="Commencer", command=commencer_revision).pack(pady=20)
 
     def lancer_session_revision(self, set_id):
-        """Démarre une session de révision pour un set spécifique."""
+        """
+        Démarre une session de révision pour un set spécifique.
+        Utilise un générateur pour parcourir les flashcards.
+        """
         flashcards = self.db_manager.obtenir_flashcards_pour_set(set_id)
         if not flashcards:
             messagebox.showinfo("Info", "Ce set ne contient pas de flashcards.")
             return
+
+        # Met à jour la date de dernière révision
         self.db_manager.connection.execute("""
-                UPDATE sets_de_flashcards
-                SET dernier_revision = datetime('now')
-                WHERE id = ?;
-            """, (set_id,))
+            UPDATE sets_de_flashcards
+            SET dernier_revision = datetime('now')
+            WHERE id = ?;
+        """, (set_id,))
+
+        # Initialise le générateur de flashcards
+        def flashcard_generator(cards):
+            for card in cards:
+                yield card
+
+        flashcard_gen = flashcard_generator(flashcards)
 
         session_window = tk.Toplevel(self.root)
         session_window.title("Session de Révision")
         session_window.geometry("400x300")
 
-        current_index = [0]
         bonnes_reponses = [0]
+        current_flashcard = [None]
 
         def afficher_question():
-            if current_index[0] < len(flashcards):
-                question_label.config(text=f"Question: {flashcards[current_index[0]][1]}")
+            try:
+                # Récupère la prochaine flashcard du générateur
+                current_flashcard[0] = next(flashcard_gen)
+                question_label.config(text=f"Question: {current_flashcard[0][1]}")
                 reponse_entry.delete(0, tk.END)
-            else:
+            except StopIteration:
                 terminer_session()
 
         def valider_reponse():
+            """
+            Valide la réponse de l'utilisateur et met à jour les statistiques.
+            """
             user_reponse = reponse_entry.get().strip()
-            correct_reponse = flashcards[current_index[0]][2]
+            correct_reponse = current_flashcard[0][2]
 
             if user_reponse.lower() == correct_reponse.lower():
                 bonnes_reponses[0] += 1
                 self.db_manager.connection.execute(
-                    "UPDATE flashcards SET correct_count = correct_count + 1 WHERE id = ?;",
-                    (flashcards[current_index[0]][0],)
+                    """
+                    UPDATE flashcards 
+                    SET correct_count = correct_count + 1 
+                    WHERE id = ?;
+                    """,
+                    (current_flashcard[0][0],)
                 )
             else:
                 self.db_manager.connection.execute(
-                    "UPDATE flashcards SET incorrect_count = incorrect_count + 1 WHERE id = ?;",
-                    (flashcards[current_index[0]][0],)
+                    """
+                    UPDATE flashcards 
+                    SET incorrect_count = incorrect_count + 1 
+                    WHERE id = ?;
+                    """,
+                    (current_flashcard[0][0],)
                 )
-            current_index[0] += 1
+
+            # Sauvegarde dans la base après chaque mise à jour
+            self.db_manager.connection.commit()
+
             afficher_question()
 
         def terminer_session():
@@ -285,6 +314,7 @@ class FlashcardApp:
                 f"Session terminée ! Bonnes réponses: {bonnes_reponses[0]} / {len(flashcards)}"
             )
 
+        # Interface de la fenêtre de session
         question_label = tk.Label(session_window, text="", font=("Helvetica", 14))
         question_label.pack(pady=10)
 
@@ -295,37 +325,65 @@ class FlashcardApp:
         afficher_question()
 
     def afficher_statistiques(self):
+        """
+        Fenêtre pour afficher les statistiques spécifiques à l'utilisateur actif.
+        """
         if not self.utilisateur_actif:
             messagebox.showerror("Erreur", "Veuillez d'abord sélectionner un utilisateur.")
             return
 
-        """Fenêtre pour afficher les statistiques."""
         stats_window = tk.Toplevel(self.root)
         stats_window.title("Statistiques")
-        stats_window.geometry("600x400")
+        stats_window.geometry("800x600")
 
-        # Section des statistiques globales
-        tk.Label(stats_window, text="Statistiques Globales", font=("Helvetica", 14)).pack(pady=10)
+        # Récupération des statistiques pour l'utilisateur actif
+        globales = self.db_manager.obtenir_statistiques_globales(self.utilisateur_actif)
+        correct = globales['correct']
+        incorrect = globales['incorrect']
+        total = correct + incorrect
 
-        globales = self.db_manager.obtenir_statistiques_globales()
-        tk.Label(stats_window, text=f"Total Correct: {globales['correct']}", font=("Helvetica", 12)).pack()
-        tk.Label(stats_window, text=f"Total Incorrect: {globales['incorrect']}", font=("Helvetica", 12)).pack()
-        tk.Label(stats_window, text=f"Taux de Réussite: {globales['taux_reussite']:.2f}%", font=("Helvetica", 12)).pack(
-            pady=10)
+        # Vérifie si l'utilisateur n'a pas encore de statistiques
+        if total == 0:
+            messagebox.showinfo(
+                "Statistiques",
+                "Aucune donnée statistique disponible pour cet utilisateur."
+            )
+            stats_window.destroy()
+            return
 
-        # Section des statistiques par set
-        tk.Label(stats_window, text="Statistiques par Set", font=("Helvetica", 14)).pack(pady=10)
+        # Graphique en camembert pour les statistiques globales
+        fig1, ax1 = plt.subplots(figsize=(5, 4))
+        ax1.pie(
+            [correct, incorrect],
+            labels=["Correct", "Incorrect"],
+            autopct=lambda p: f'{p:.1f}%' if p > 0 else '',
+            startangle=90,
+            colors=["#5cb85c", "#d9534f"]
+        )
+        ax1.set_title("Taux de Réussite Global")
 
-        stats_tree = ttk.Treeview(stats_window, columns=("Set", "Correct", "Incorrect", "Taux"), show="headings")
-        stats_tree.heading("Set", text="Set")
-        stats_tree.heading("Correct", text="Correct")
-        stats_tree.heading("Incorrect", text="Incorrect")
-        stats_tree.heading("Taux", text="Taux de Réussite (%)")
-        stats_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        canvas1 = FigureCanvasTkAgg(fig1, master=stats_window)
+        canvas1.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        stats_par_set = self.db_manager.obtenir_statistiques_par_set()
-        for set_stats in stats_par_set:
-            stats_tree.insert("", tk.END, values=set_stats)
+        # Statistiques par set
+        stats_par_set = self.db_manager.obtenir_statistiques_par_set(self.utilisateur_actif)
+        set_names = [s[0] for s in stats_par_set]
+        set_correct = [s[1] for s in stats_par_set]
+        set_incorrect = [s[2] for s in stats_par_set]
+
+        # Graphique en barres pour les statistiques par set
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        x = range(len(set_names))
+        ax2.bar(x, set_correct, label="Correct", color="#5cb85c")
+        ax2.bar(x, set_incorrect, bottom=set_correct, label="Incorrect", color="#d9534f")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(set_names, rotation=45, ha="right")
+        ax2.set_ylabel("Nombre de réponses")
+        ax2.set_title("Performances par Set")
+        ax2.legend()
+
+        canvas2 = FigureCanvasTkAgg(fig2, master=stats_window)
+        canvas2.get_tk_widget().pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
     def gerer_flashcards(self, set_id):
         """Fenêtre pour gérer les flashcards d’un set."""
@@ -486,6 +544,29 @@ class FlashcardApp:
 
         # Style des menus
         self.root.config(background="#F4F4F4")
+
+    def flashcard_generator(self, flashcards):
+        """
+        Générateur qui parcourt les flashcards d'un set.
+        """
+        for flashcard in flashcards:
+            yield flashcard
+
+    def afficher_sets_utilisateur(self):
+        """
+        Vérifie les sets associés à l'utilisateur actif.
+        """
+        if not self.utilisateur_actif:
+            messagebox.showerror("Erreur", "Veuillez sélectionner un utilisateur.")
+            return
+
+        sets = self.db_manager.obtenir_sets_pour_utilisateur(self.utilisateur_actif)
+        if sets:
+            message = "\n".join([f"Set ID: {set_[0]}, Nom: {set_[1]}" for set_ in sets])
+        else:
+            message = "Aucun set trouvé pour cet utilisateur."
+
+        messagebox.showinfo("Sets de l'utilisateur", message)
 
 
 # Lancer l'application

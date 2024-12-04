@@ -5,6 +5,7 @@ class DatabaseManager:
         self.connection = sqlite3.connect(db_name)
         self.create_tables()
 
+
     def create_tables(self):
         with self.connection:
             self.connection.execute("""
@@ -82,18 +83,22 @@ class DatabaseManager:
                 WHERE set_id = ?;
             """, (set_id,)).fetchall()
 
-    def obtenir_statistiques_globales(self):
-        """Récupère les statistiques globales de toutes les flashcards."""
+    def obtenir_statistiques_globales(self, utilisateur_id):
+        """
+        Récupère les statistiques globales d'un utilisateur spécifique.
+        """
         with self.connection:
             result = self.connection.execute("""
                 SELECT 
-                    SUM(correct_count) AS total_correct,
-                    SUM(incorrect_count) AS total_incorrect
-                FROM flashcards;
-            """).fetchone()
+                    SUM(flashcards.correct_count) AS total_correct,
+                    SUM(flashcards.incorrect_count) AS total_incorrect
+                FROM flashcards
+                JOIN sets_de_flashcards ON flashcards.set_id = sets_de_flashcards.id
+                WHERE sets_de_flashcards.utilisateur_id = ?;
+            """, (utilisateur_id,)).fetchone()
 
-            total_correct = result["total_correct"] or 0
-            total_incorrect = result["total_incorrect"] or 0
+            total_correct = result[0] or 0
+            total_incorrect = result[1] or 0
             total_reponses = total_correct + total_incorrect
 
             taux_reussite = (total_correct / total_reponses * 100) if total_reponses > 0 else 0
@@ -103,51 +108,25 @@ class DatabaseManager:
                 "taux_reussite": taux_reussite
             }
 
-    def obtenir_statistiques_globales(self):
-        """Récupère les statistiques globales de toutes les flashcards."""
-        with self.connection:
-            result = self.connection.execute("""
-                SELECT 
-                    SUM(correct_count) AS total_correct,
-                    SUM(incorrect_count) AS total_incorrect
-                FROM flashcards;
-            """).fetchone()
-
-            if result:  # Vérification si la requête a renvoyé des résultats
-                total_correct = result[0] or 0  # Accès par index
-                total_incorrect = result[1] or 0  # Accès par index
-                total_reponses = total_correct + total_incorrect
-
-                taux_reussite = (total_correct / total_reponses * 100) if total_reponses > 0 else 0
-                return {
-                    "correct": total_correct,
-                    "incorrect": total_incorrect,
-                    "taux_reussite": taux_reussite
-                }
-            else:
-                return {"correct": 0, "incorrect": 0, "taux_reussite": 0}
-
-    def obtenir_statistiques_par_set(self):
-        """Récupère les statistiques par set."""
-        with self.connection:
-            result = self.connection.execute("""
-                SELECT 
-                    sets_de_flashcards.nom AS set_name,
-                    SUM(flashcards.correct_count) AS correct,
-                    SUM(flashcards.incorrect_count) AS incorrect,
-                    CASE 
-                        WHEN SUM(flashcards.correct_count) + SUM(flashcards.incorrect_count) > 0
-                        THEN ROUND(SUM(flashcards.correct_count) * 100.0 / (SUM(flashcards.correct_count) + SUM(flashcards.incorrect_count)), 2)
-                        ELSE 0
-                    END AS taux_reussite
-                FROM sets_de_flashcards
-                LEFT JOIN flashcards ON sets_de_flashcards.id = flashcards.set_id
-                GROUP BY sets_de_flashcards.id
-                ORDER BY sets_de_flashcards.nom;
-            """).fetchall()
-
-            # Organiser les résultats en tuples
-            return [(row[0], row[1] or 0, row[2] or 0, row[3] or 0) for row in result]
+    def obtenir_statistiques_par_set(self, utilisateur_id):
+        """
+        Récupère les statistiques pour chaque set d'un utilisateur spécifique.
+        """
+        return self.connection.execute("""
+            SELECT 
+                sets_de_flashcards.nom AS set_name,
+                SUM(flashcards.correct_count) AS correct,
+                SUM(flashcards.incorrect_count) AS incorrect,
+                CASE 
+                    WHEN SUM(flashcards.correct_count + flashcards.incorrect_count) > 0 THEN
+                        ROUND(SUM(flashcards.correct_count) * 100.0 / SUM(flashcards.correct_count + flashcards.incorrect_count), 2)
+                    ELSE 0
+                END AS taux_reussite
+            FROM flashcards
+            JOIN sets_de_flashcards ON flashcards.set_id = sets_de_flashcards.id
+            WHERE sets_de_flashcards.utilisateur_id = ?
+            GROUP BY sets_de_flashcards.id;
+        """, (utilisateur_id,)).fetchall()
 
     def modifier_flashcard(self, id, nouvelle_question, nouvelle_reponse):
         """Modifie une flashcard existante."""
@@ -166,13 +145,14 @@ class DatabaseManager:
             """, (id,))
 
     def obtenir_sets_pour_utilisateur(self, utilisateur_id):
-        """Récupère tous les sets de flashcards pour un utilisateur spécifique."""
+        """
+        Récupère tous les sets associés à un utilisateur spécifique.
+        """
         with self.connection:
             return self.connection.execute("""
-                SELECT id, nom 
+                SELECT id, nom
                 FROM sets_de_flashcards
-                WHERE utilisateur_id = ?
-                ORDER BY nom;
+                WHERE utilisateur_id = ?;
             """, (utilisateur_id,)).fetchall()
 
     def obtenir_sets_a_reviser(self):
