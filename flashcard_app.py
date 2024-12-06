@@ -11,7 +11,7 @@ class FlashcardApp:
         self.root = root
         self.db_manager = db_manager
         self.utilisateur_actif = None  # L'utilisateur actif
-kadazkjdbazkdj
+
         self.root.title("Application de Flashcards")
         self.root.geometry("800x600")
         self.charger_icones()
