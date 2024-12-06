@@ -2,6 +2,7 @@ class Utilisateur:
     
     def se_connecter(self):
         """
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA CACA
         Authentifie l'utilisateur avec les informations fournies.
 
         Cette méthode vérifie les informations d'identification de l'utilisateur 
