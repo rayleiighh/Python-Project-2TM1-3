@@ -1,19 +1,19 @@
 class Flashcard:
-    def __init__(self, question, reponse):
+    def __init__(self, question: str, reponse: str, flashcard_id=None):
+        if not question or not reponse:
+            raise ValueError("La question et la réponse doivent être non vides.")
+        self.id = flashcard_id  # Optionnel, défini lors de la récupération depuis la DB
         self.question = question
         self.reponse = reponse
-        self.correct_count = 0
-        self.incorrect_count = 0
 
-    def repondre(self, reponse_utilisateur):
-        if reponse_utilisateur.lower() == self.reponse.lower():
-            self.correct_count += 1
-            print("Bonne réponse !")
-            return True
-        else:
-            self.incorrect_count += 1
-            print(f"Mauvaise réponse. La bonne réponse est: {self.reponse}")
-            return False
+    def afficher_question(self) -> str:
+        """Retourne la question de la flashcard."""
+        if not self.question:
+            raise ValueError("La question de la flashcard est vide.")
+        return self.question
 
-    def __str__(self):
-        return f"Flashcard: {self.question}"
+    def afficher_reponse(self) -> str:
+        """Retourne la réponse de la flashcard."""
+        if not self.reponse:
+            raise ValueError("La réponse de la flashcard est vide.")
+        return self.reponse

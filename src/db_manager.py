@@ -1,4 +1,7 @@
 import sqlite3
+from flashcard import Flashcard
+from set_de_flashcard import SetDeFlashcards
+
 
 class DatabaseManager:
     def __init__(self, db_name="flashcard_app.db"):
@@ -74,3 +77,29 @@ class DatabaseManager:
             return self.connection.execute("""
                 SELECT id, question, reponse FROM flashcards WHERE set_id = ?;
             """, (set_id,)).fetchall()
+
+    def obtenir_set_de_flashcards(self, set_id: int):
+        """Récupère un set de flashcards depuis la base de données."""
+        result = self.connection.execute("""
+            SELECT nom FROM sets_de_flashcards WHERE id = ?;
+        """, (set_id,)).fetchone()
+        if result:
+            set_flashcards = SetDeFlashcards(result[0], set_id)
+            flashcards = self.obtenir_flashcards(set_id)
+            for fc in flashcards:
+                set_flashcards.ajouter_flashcard(Flashcard(fc[1], fc[2], fc[0]))
+            return set_flashcards
+        else:
+            raise LookupError("Set introuvable.")
+
+    def sauvegarder_flashcard(self, flashcard: Flashcard, set_id: int):
+        """Sauvegarde une flashcard dans la base de données."""
+        with self.connection:
+            if flashcard.id:
+                self.connection.execute("""
+                    UPDATE flashcards SET question = ?, reponse = ? WHERE id = ?;
+                """, (flashcard.question, flashcard.reponse, flashcard.id))
+            else:
+                self.connection.execute("""
+                    INSERT INTO flashcards (question, reponse, set_id) VALUES (?, ?, ?);
+                """, (flashcard.question, flashcard.reponse, set_id))
