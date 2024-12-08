@@ -1,17 +1,17 @@
-from flashcard import Flashcard
-
-
-
-
 class SetDeFlashcards:
     def __init__(self, nom):
         self.nom = nom
-        self.liste_flashcards = []
+        self.flashcards = []  # Liste de Flashcards
 
-    def ajouter_flashcard(self, question, reponse):
-        self.liste_flashcards.append(Flashcard(question, reponse))
-        print(f"Flashcard ajoutée au set '{self.nom}'.")
+    def ajouter_flashcard(self, flashcard):
+        self.flashcards.append(flashcard)
 
-    def lister_flashcards(self):
-        for i, card in enumerate(self.liste_flashcards, start=1):
-            print(f"{i}. {card.afficher_question()}")
+    def afficher_flashcards(self):
+        if not self.flashcards:
+            print("Aucune flashcard.")
+        else:
+            for i, flashcard in enumerate(self.flashcards, start=1):
+                print(f"{i}. Question: {flashcard.question}, Réponse: {flashcard.reponse}")
+
+    def __str__(self):
+        return f"Set: {self.nom}, {len(self.flashcards)} flashcards"
