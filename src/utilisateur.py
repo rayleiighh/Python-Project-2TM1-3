@@ -1,16 +1,19 @@
-from db_manager import DatabaseManager
-from SetDeFlashcard import SetDeFlashcards
-
 class Utilisateur:
-    def __init__(self, nom, email, mot_de_passe):
+    def __init__(self, nom, email):
         self.nom = nom
         self.email = email
-        self.mot_de_passe = mot_de_passe
-        self.sets_de_flashcards = {}
+        self.sets = []  # Liste de SetDeFlashcards
+        self.statistiques = None  # Instance de Statistiques
 
-    def ajouter_set_flashcards(self, set_name):
-        if set_name not in self.sets_de_flashcards:
-            self.sets_de_flashcards[set_name] = SetDeFlashcards(set_name)
-            print(f"Set '{set_name}' ajouté pour {self.nom}.")
+    def ajouter_set(self, set_flashcards):
+        self.sets.append(set_flashcards)
+
+    def afficher_sets(self):
+        if not self.sets:
+            print("Aucun set de flashcards.")
         else:
-            print(f"Le set '{set_name}' existe déjà.")
+            for i, set_flashcard in enumerate(self.sets, start=1):
+                print(f"{i}. {set_flashcard.nom}")
+
+    def __str__(self):
+        return f"Utilisateur: {self.nom}, Email: {self.email}"

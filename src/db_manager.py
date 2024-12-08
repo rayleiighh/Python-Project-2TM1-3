@@ -1,19 +1,18 @@
 import sqlite3
 
 class DatabaseManager:
-    def __init__(self, db_name="flashcards_app.db"):
+    def __init__(self, db_name="flashcard_app.db"):
         self.connection = sqlite3.connect(db_name)
         self.create_tables()
 
-
     def create_tables(self):
+        """Crée les tables nécessaires dans la base de données."""
         with self.connection:
             self.connection.execute("""
                 CREATE TABLE IF NOT EXISTS utilisateurs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    mot_de_passe TEXT NOT NULL
+                    email TEXT UNIQUE NOT NULL
                 );
             """)
             self.connection.execute("""
@@ -21,7 +20,6 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom TEXT NOT NULL,
                     utilisateur_id INTEGER NOT NULL,
-                    dernier_revision DATETIME DEFAULT NULL,
                     FOREIGN KEY(utilisateur_id) REFERENCES utilisateurs(id)
                 );
             """)
@@ -31,160 +29,48 @@ class DatabaseManager:
                     question TEXT NOT NULL,
                     reponse TEXT NOT NULL,
                     set_id INTEGER NOT NULL,
-                    correct_count INTEGER DEFAULT 0,
-                    incorrect_count INTEGER DEFAULT 0,
                     FOREIGN KEY(set_id) REFERENCES sets_de_flashcards(id)
                 );
             """)
-            print("Tables créées avec succès.")
 
-    def ajouter_utilisateur(self, nom, email, mot_de_passe):
+    def ajouter_utilisateur(self, nom, email):
+        """Ajoute un utilisateur à la base de données."""
         with self.connection:
-            utilisateur = self.connection.execute("""
-                SELECT * FROM utilisateurs WHERE email = ?;
-            """, (email,)).fetchone()
-
-            if utilisateur:
-                print(f"L'utilisateur avec l'email '{email}' existe déjà.")
-                return
-
             self.connection.execute("""
-                INSERT INTO utilisateurs (nom, email, mot_de_passe)
-                VALUES (?, ?, ?);
-            """, (nom, email, mot_de_passe))
-            print(f"Utilisateur '{nom}' ajouté à la base de données.")
+                INSERT INTO utilisateurs (nom, email) VALUES (?, ?);
+            """, (nom, email))
 
-    def ajouter_set_flashcards(self, nom, utilisateur_id):
-        """Ajoute un set de flashcards pour un utilisateur spécifique."""
+    def obtenir_utilisateurs(self):
+        """Récupère tous les utilisateurs."""
+        with self.connection:
+            return self.connection.execute("""
+                SELECT id, nom, email FROM utilisateurs;
+            """).fetchall()
+
+    def ajouter_set(self, nom, utilisateur_id):
+        """Ajoute un set de flashcards à un utilisateur."""
         with self.connection:
             self.connection.execute("""
                 INSERT INTO sets_de_flashcards (nom, utilisateur_id) VALUES (?, ?);
             """, (nom, utilisateur_id))
 
-    def ajouter_flashcard(self, question, reponse, set_id):
-        with self.connection:
-            self.connection.execute("""
-                INSERT INTO flashcards (question, reponse, set_id)
-                VALUES (?, ?, ?);
-            """, (question, reponse, set_id))
-            print(f"Flashcard ajoutée au set ID {set_id}.")
-
-    def obtenir_sets_pour_utilisateur(self, utilisateur_id):
-        """Récupère les sets de flashcards liés à un utilisateur."""
+    def obtenir_sets(self, utilisateur_id):
+        """Récupère les sets d'un utilisateur."""
         with self.connection:
             return self.connection.execute("""
                 SELECT id, nom FROM sets_de_flashcards WHERE utilisateur_id = ?;
             """, (utilisateur_id,)).fetchall()
 
-    def obtenir_flashcards_pour_set(self, set_id):
+    def ajouter_flashcard(self, question, reponse, set_id):
+        """Ajoute une flashcard à un set."""
+        with self.connection:
+            self.connection.execute("""
+                INSERT INTO flashcards (question, reponse, set_id) VALUES (?, ?, ?);
+            """, (question, reponse, set_id))
+
+    def obtenir_flashcards(self, set_id):
+        """Récupère les flashcards d'un set."""
         with self.connection:
             return self.connection.execute("""
-                SELECT * FROM flashcards
-                WHERE set_id = ?;
+                SELECT id, question, reponse FROM flashcards WHERE set_id = ?;
             """, (set_id,)).fetchall()
-
-    def obtenir_statistiques_globales(self, utilisateur_id):
-        """
-        Récupère les statistiques globales d'un utilisateur spécifique.
-        """
-        with self.connection:
-            result = self.connection.execute("""
-                SELECT 
-                    SUM(flashcards.correct_count) AS total_correct,
-                    SUM(flashcards.incorrect_count) AS total_incorrect
-                FROM flashcards
-                JOIN sets_de_flashcards ON flashcards.set_id = sets_de_flashcards.id
-                WHERE sets_de_flashcards.utilisateur_id = ?;
-            """, (utilisateur_id,)).fetchone()
-
-            total_correct = result[0] or 0
-            total_incorrect = result[1] or 0
-            total_reponses = total_correct + total_incorrect
-
-            taux_reussite = (total_correct / total_reponses * 100) if total_reponses > 0 else 0
-            return {
-                "correct": total_correct,
-                "incorrect": total_incorrect,
-                "taux_reussite": taux_reussite
-            }
-
-    def obtenir_statistiques_par_set(self, utilisateur_id):
-        """
-        Récupère les statistiques pour chaque set d'un utilisateur spécifique.
-        """
-        return self.connection.execute("""
-            SELECT 
-                sets_de_flashcards.nom AS set_name,
-                SUM(flashcards.correct_count) AS correct,
-                SUM(flashcards.incorrect_count) AS incorrect,
-                CASE 
-                    WHEN SUM(flashcards.correct_count + flashcards.incorrect_count) > 0 THEN
-                        ROUND(SUM(flashcards.correct_count) * 100.0 / SUM(flashcards.correct_count + flashcards.incorrect_count), 2)
-                    ELSE 0
-                END AS taux_reussite
-            FROM flashcards
-            JOIN sets_de_flashcards ON flashcards.set_id = sets_de_flashcards.id
-            WHERE sets_de_flashcards.utilisateur_id = ?
-            GROUP BY sets_de_flashcards.id;
-        """, (utilisateur_id,)).fetchall()
-
-    def modifier_flashcard(self, id, nouvelle_question, nouvelle_reponse):
-        """Modifie une flashcard existante."""
-        with self.connection:
-            self.connection.execute("""
-                UPDATE flashcards
-                SET question = ?, reponse = ?
-                WHERE id = ?;
-            """, (nouvelle_question, nouvelle_reponse, id))
-
-    def supprimer_flashcard(self, id):
-        """Supprime une flashcard existante."""
-        with self.connection:
-            self.connection.execute("""
-                DELETE FROM flashcards WHERE id = ?;
-            """, (id,))
-
-    def obtenir_sets_pour_utilisateur(self, utilisateur_id):
-        """
-        Récupère tous les sets associés à un utilisateur spécifique.
-        """
-        with self.connection:
-            return self.connection.execute("""
-                SELECT id, nom
-                FROM sets_de_flashcards
-                WHERE utilisateur_id = ?;
-            """, (utilisateur_id,)).fetchall()
-
-    def obtenir_sets_a_reviser(self):
-        """Récupère les sets qui n'ont pas été révisés depuis 24 heures."""
-        with self.connection:
-            return self.connection.execute("""
-                SELECT id, nom, dernier_revision
-                FROM sets_de_flashcards
-                WHERE dernier_revision IS NULL OR dernier_revision < datetime('now', '-1 day')
-                ORDER BY dernier_revision ASC;
-            """).fetchall()
-
-    def ajouter_colonne_dernier_revision(self):
-        """Ajoute la colonne 'dernier_revision' à la table sets_de_flashcards si elle n'existe pas."""
-        with self.connection:
-            # Vérifier si la colonne existe déjà
-            result = self.connection.execute("""
-                PRAGMA table_info(sets_de_flashcards);
-            """).fetchall()
-            colonnes = [colonne[1] for colonne in result]  # Liste des noms de colonnes
-            if "dernier_revision" not in colonnes:
-                self.connection.execute("""
-                    ALTER TABLE sets_de_flashcards ADD COLUMN dernier_revision DATETIME DEFAULT NULL;
-                """)
-                print("Colonne 'dernier_revision' ajoutée à la table 'sets_de_flashcards'.")
-            else:
-                print("Colonne 'dernier_revision' existe déjà.")
-
-    def obtenir_utilisateurs(self):
-        """Récupère tous les utilisateurs de la base de données."""
-        with self.connection:
-            return self.connection.execute("""
-                SELECT id, nom FROM utilisateurs ORDER BY nom;
-            """).fetchall()
-
