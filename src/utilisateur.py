@@ -9,7 +9,7 @@ class Utilisateur:
 
     def se_connecter(self, email, mot_de_passe):
         """
-        Simule l'authentification de l'utilisateur.
+        l'authentification de l'utilisateur.
         """
         if email == self.email and mot_de_passe == self.mot_de_passe:
             self.session_active = True
@@ -38,6 +38,8 @@ class Utilisateur:
         if nouveau_mot_de_passe:
             self.mot_de_passe = nouveau_mot_de_passe
         return True
-
-
+    
+    
+    def __str__(self):
+        return f"Utilisateur(nom={self.nom}, email={self.email}, session_active={self.session_active})"
 

@@ -25,4 +25,7 @@ class Notification:
         print(f"Notification planifiée pour le {date.strftime('%Y-%m-%d %H:%M:%S')}")
         return True
 
+    def __str__(self):
+        return f"Notification(id={self.id}, type={self.type}, contenu={self.contenu})"
+
 

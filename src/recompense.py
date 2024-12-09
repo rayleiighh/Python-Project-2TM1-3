@@ -25,3 +25,6 @@ class Recompense:
             return True
         raise PermissionError("Critères non remplis pour débloquer la récompense")
 
+    def __str__(self):
+        return f"Recompense(id={self.id}, nom={self.nom}, debloquee={self.debloquee})"
+
