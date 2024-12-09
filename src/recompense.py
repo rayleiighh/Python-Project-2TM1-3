@@ -27,4 +27,3 @@ class Recompense:
 
     def __str__(self):
         return f"Recompense(id={self.id}, nom={self.nom}, debloquee={self.debloquee})"
-
