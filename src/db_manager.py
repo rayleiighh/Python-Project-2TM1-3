@@ -1,3 +1,4 @@
+#Incrémenté par Rayane
 import sqlite3
 from flashcard import Flashcard
 from set_de_flashcard import SetDeFlashcards

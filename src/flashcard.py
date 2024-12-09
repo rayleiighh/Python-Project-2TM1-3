@@ -1,3 +1,4 @@
+#Incrémenté par Rayane
 class Flashcard:
     def __init__(self, question: str, reponse: str, flashcard_id=None):
         if not question or not reponse:

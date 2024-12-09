@@ -1,3 +1,4 @@
+#Incrémenté par Rayane
 from flashcard import Flashcard
 
 
