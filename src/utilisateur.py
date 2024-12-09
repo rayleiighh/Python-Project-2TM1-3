@@ -1,8 +1,4 @@
 # Incrémenter par Mohamed Mokhtar El Mazani
-
-
-import datetime
-
 class Utilisateur:
     def __init__(self, nom, email, mot_de_passe):
         self.nom = nom
