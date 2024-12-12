@@ -1,3 +1,9 @@
+from statistiques import Statistiques
+
+class DatabaseError(Exception):
+    """Exception levée lorsqu'il y a une erreur liée à la base de données."""
+    pass
+
 class StatistiquesManager:
     def __init__(self):
         self._db = {}  # Base de données simulée

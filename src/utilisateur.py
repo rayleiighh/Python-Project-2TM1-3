@@ -2,19 +2,25 @@
 import re
 
 class Utilisateur:
+    _id_counter = 1  # Attribut de classe pour gérer les IDs uniques
+
     def __init__(self, nom, email, mot_de_passe):
+        import re
         if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
             raise ValueError("Email invalide")
         if len(mot_de_passe) < 8:
             raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
-        
+
+        self.id = Utilisateur._id_counter  # Assigner un ID unique
+        Utilisateur._id_counter += 1  # Incrémenter le compteur pour le prochain utilisateur
         self.nom = nom
         self.email = email
         self.mot_de_passe = mot_de_passe
         self.session_active = False
 
     def __str__(self):
-        return f"Utilisateur(nom={self.nom}, email={self.email}, session_active={self.session_active})"
+        return f"Utilisateur(id={self.id}, nom={self.nom}, email={self.email}, session_active={self.session_active})"
+
 
     def se_connecter(self, email, mot_de_passe):
         if email == self.email and mot_de_passe == self.mot_de_passe:
@@ -52,3 +58,5 @@ class Utilisateur:
             self.mot_de_passe = nouveau_mot_de_passe
         print("Profil mis à jour avec succès.")
         return True
+
+
