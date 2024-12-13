@@ -1,3 +1,5 @@
+# CORRECTION des méthodes "debloquer" et "envoyer"
+
 class Utilisateur:
     
     def se_connecter(self):
