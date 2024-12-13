@@ -59,18 +59,22 @@ class Notification:
         Envoie une notification à un utilisateur donné.
 
         PRE:
-        - Le destinataire doit être valide et identifiable.
-        - Le contenu de la notification doit être fourni et valide.
+        - L'instance de Notification doit être correctement initialisée.
+        - Le champ `contenu` de l'objet Notification ne doit pas être vide ou invalide.
+        - Le champ `utilisateur` doit référencer un utilisateur existant et valide.
 
         POST:
-        - Retourne True si la notification est envoyée avec succès.
-        - Retourne False si l'envoi échoue.
+        - Une tentative d'envoi de notification est effectuée.
+        - Une fenêtre pop-up s'affiche avec le contenu de la notification si l'envoi est réussi ou si l'envoi est un échec.
+        - Retourne True si la notification a été envoyée avec succès et que la fenêtre pop-up s'est affichée.
+        - Retourne False si l'envoi échoue pour des raisons autres que des exceptions et affiche l'exception dans la fenêtre de pop-up.
 
         RAISES:
-        - ValueError: Si le destinataire ou le contenu est invalide.
-        - NotificationError: Si une erreur technique survient pendant l’envoi.
+        - ValueError: Si le champ `contenu` est vide ou invalide.
+        - NotificationError: Si une erreur technique empêche l'envoi de la notification.
         """
-        pass
+
+
 
     def planifier(self):
         """
@@ -113,15 +117,20 @@ class Recompense:
         Attribue une récompense si les critères de déblocage sont remplis.
 
         PRE:
-        - Les critères de déblocage doivent être vérifiés et remplis.
-        - Une connexion à la base de données doit être disponible.
+        - L'instance de Récompense doit être correctement initialisée.
+        - Les critères de déblocage doivent être vérifiés avant l'appel à cette méthode.
+        - La base de données ou le système de stockage doit être accessible.
 
         POST:
-        - Retourne True si la récompense est attribuée avec succès.
-        - Retourne False si l’attribution échoue.
+        - L'attribut `debloquee` passe de False à True si les critères sont remplis et l'opération réussit.
+        - La base de données est mise à jour pour enregistrer que la récompense a été attribuée à l'utilisateur.
+        - Retourne True si l'état de `debloquee` a changé avec succès et que la base de données a été mise à jour.
+        - Retourne False si une condition empêche le changement (par exemple : critères non remplis).
 
         RAISES:
-        - PermissionError: Si les critères ne sont pas remplis.
-        - DatabaseError: Si une erreur survient lors de la mise à jour en base.
+        - PermissionError: Si les critères nécessaires pour débloquer la récompense ne sont pas remplis.
+        - DatabaseError: Si une erreur survient lors de la mise à jour ou de la persistance de l'état en base.
         """
-        pass
+
+
+
